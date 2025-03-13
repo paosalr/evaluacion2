@@ -8,6 +8,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
+
 
 class UserController extends Controller
 {
@@ -89,8 +91,16 @@ class UserController extends Controller
     }
     public function update(Request $request, $id)
     {
-        $user = User::find($id);
+        $authUser = auth()->user();
 
+        if (!$authUser) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Usuario no encontrado.'
+            ], 404);
+        }
+
+        $user = User::with('role')->find($id);
         if (!$user) {
             return response()->json([
                 'success' => false,
@@ -98,7 +108,7 @@ class UserController extends Controller
             ], 404);
         }
 
-        if($request->has('email') && $user->role->name !== 'RH') {
+        if($request->has('email') && strtolower(trim($authUser->role->name)) !== 'rh') {
             return response()->json([
                 'success' => false,
                 'message' => 'Solo los usuarios RH pueden actualizar el correo.'

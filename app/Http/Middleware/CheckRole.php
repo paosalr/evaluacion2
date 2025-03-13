@@ -25,7 +25,7 @@ class CheckRole
             ], 401);
         }
 
-        if (!in_array($user->role->name, $roles)){
+        if (!in_array(strtolower($user->role->name), array_map('strtolower', $roles))) {
             return response()->json([
                 'success' => false,
                 'message' => 'Acceso denegado. No tienes permiso para realizar esta acción.'
