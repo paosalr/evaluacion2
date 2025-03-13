@@ -115,7 +115,7 @@ class TaskController extends Controller
 
         public function destroy($id)
         {
-            $task = Task::destroy($id);
+            $task = Task::find($id);
 
             if(!$task){
                 return response()->json([
@@ -178,5 +178,4 @@ class TaskController extends Controller
             ], 500);
         }
     }
-
 }

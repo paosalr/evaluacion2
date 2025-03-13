@@ -32,6 +32,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::put('update-password/{id}', [UserController::class, 'updatePassword'])->name('users.update.password');
             Route::put('active-inactive/{id}', [UserController::class, 'activeInactiveUser'])->name('users.active-inactive');
             Route::delete('delete/{id}', [UserController::class, 'destroy'])->name('users.destroy');
+            Route::get('testers-developers', [UserController::class, 'getTestersDevelopers'])->name('users.testers.developers');
         });
     });
 
@@ -47,6 +48,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('update-status/{id}', [ProjectController::class, 'updateStatus'])->name('projects.update.status');
         Route::post('assign-developers/{id}', [ProjectController::class, 'assignDevelopers'])->name('projects.assign.developers');
         Route::delete('delete/{id}', [ProjectController::class, 'destroy'])->name('projects.destroy');
+        Route::get('task-project/{id}', [ProjectController::class, 'getTasksByProject'])->name('projects.tasks');
     });
 
     /***** TAREAS *****/
@@ -71,4 +73,3 @@ Route::middleware('auth:sanctum')->group(function () {
         });
     });
 });
-

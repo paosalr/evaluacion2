@@ -10,7 +10,9 @@ class ProjectController extends Controller
 {
     public function index()
     {
-        $projects = Project::paginate(10);
+        $projects = Project::whereHas('developers', function ($query) {
+            $query->where('user_id', auth()->user()->id);
+        })->orWhere('status', 'Planeación')->paginate(10);
 
         return response()->json([
             'success' => true,
@@ -57,7 +59,7 @@ class ProjectController extends Controller
     {
         $project = Project::find($id);
 
-        if(!project) {
+        if(!$project) {
             return response()->json([
                 'success' => 'false',
                 'message' => 'Proyecto no encontrado.'
@@ -79,7 +81,7 @@ class ProjectController extends Controller
 
         $project = Project::find($id);
 
-        if(!project) {
+        if(!$project) {
             return response()->json([
                 'success' => false,
                 'message' => 'Proyecto no encontrado.'
@@ -223,7 +225,30 @@ class ProjectController extends Controller
             'success' => false,
             'message' => 'Ha ocurrido un error: ' . $e->getMessage()
         ], 500);
+        }
     }
 
+    public function getTasksByProject($id)
+    {
+        try {
+            $project = Project::with('tasks')->find($id);
+
+            if (!$project) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Proyecto no encontrado.'
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $project->tasks
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ha ocurrido un error: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

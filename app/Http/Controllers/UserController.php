@@ -112,19 +112,10 @@ class UserController extends Controller
             'role_id' => 'sometimes|exists:roles,id'
             ]);
 
-        $user = User::find($id);
-
-        if(!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Usuario no encontrado.'
-            ], 404);
-        }
-
         try {
             DB::beginTransaction();
 
-            $user = fill($request->all());
+            $user->fill($request->only(['name', 'last_name_p', 'last_name_m', 'email', 'role_id']));
             $user->save();
 
             DB::commit();
@@ -261,6 +252,41 @@ class UserController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Ha ocurrido un error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getTestersDevelopers()
+    {
+        if (auth()->user()->role->name !== 'RH') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Acceso denegado. Solo usuarios RH pueden ver esta lista.'
+            ], 403);
+        }
+
+        try {
+
+            $roles = Role::whereIn('name', ['Desarrollador', 'Tester'])->pluck('id')->toArray();
+
+            if (!$roles) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Roles no encontrados.'
+                ], 404);
+            }
+            $users = User::whereIn('role_id', $roles)
+                ->select('id', 'name', 'last_name_p', 'last_name_m', 'email', 'role_id', 'is_active')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $users,
+            ]);
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Ha ocurrido un error: ' . $e->getMessage()
