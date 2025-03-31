@@ -17,7 +17,7 @@ Route::prefix('v1')->group(function () {
 
 // 2. Perfil del usuario (actualización de datos personales)
         Route::prefix('profile')->name('profile.')->group(function () {
-            Route::get('/', [UserController::class, 'showCurrent'])->name('show');
+            Route::get('/{user}', [UserController::class, 'show'])->name('show');
             Route::put('/', [UserController::class, 'updateCurrent'])->name('update'); // Solo actualiza nombre y apellidos
         });
 
@@ -59,6 +59,15 @@ Route::prefix('v1')->group(function () {
         Route::prefix('projects')->name('projects.')->group(function () {
             Route::get('project-statuses', [ProjectController::class, 'getProjectStatuses'])->name('project_statuses');
 
+            // 4.4 Operaciones solo para Planeación
+            Route::middleware('checkRole:planeación')->group(function () {
+                // 4.4.1 Crear proyectos
+                Route::post('/', [ProjectController::class, 'store'])->name('store');
+
+                // 4.4.2 Obtener desarrolladores asignables
+                Route::get('/assignable-developers', [ProjectController::class, 'getAssignableDevelopers'])->name('assignable.devs');
+            });
+
             // 4.1 Listar proyectos (todos los roles excepto RH)
             Route::get('/', [ProjectController::class, 'index'])->middleware('checkRole:planeación,desarrollador,tester');
 
@@ -67,15 +76,6 @@ Route::prefix('v1')->group(function () {
             // 4.3 Ver tareas por proyecto (todos excepto RH)
             Route::get('/{project}/tasks', [ProjectController::class, 'getTasksByProject'])->middleware('checkRole:planeación,desarrollador,tester')->name('tasks');
             Route::get('projects/{project}/tasks', [ProjectController::class, 'getTasksByProject'])->name('projects.tasks');
-
-            // 4.4 Operaciones solo para Planeación y RH
-            Route::middleware('checkRole:planeación,rh')->group(function () {
-                // 4.4.1 Crear proyectos
-                Route::post('/', [ProjectController::class, 'store'])->name('store');
-
-                // 4.4.2 Obtener desarrolladores asignables
-                Route::get('/assignable-developers', [ProjectController::class, 'getAssignableDevelopers'])->name('assignable.devs');
-            });
 
             // 4.5 Operaciones exclusivas de Planeación
             Route::middleware('checkRole:planeación')->group(function () {
@@ -96,22 +96,20 @@ Route::prefix('v1')->group(function () {
         // 5. Gestión de Tareas
         Route::prefix('tasks')->name('tasks.')->group(function () {
             Route::get('task-statuses', [TaskController::class, 'getTaskStatuses'])->middleware('checkRole:planeación,desarrollador,tester');
+            // 5.1.2 Cambiar estado de tarea
+            Route::put('/{task}/status', [TaskController::class, 'updateStatus'])->name('update.status');
             // 5.1 Operaciones para Desarrolladores y Testers
             Route::middleware('checkRole:desarrollador,tester')->group(function () {
                 // 5.1.1 Ver tareas asignadas
                 Route::get('/assigned', [TaskController::class, 'assignedTasks'])->name('assigned');
-
-                // 5.1.2 Cambiar estado de tarea
-                Route::put('/{task}/status', [TaskController::class, 'updateStatus'])->name('update.status');
             });
+
+            Route::get('/', [TaskController::class, 'index'])->name('index');
 
             // 5.2 Operaciones exclusivas de Planeación
             Route::middleware('checkRole:planeación')->group(function () {
                 // 5.2.1 Crear tareas
                 Route::post('/', [TaskController::class, 'store'])->name('store');
-
-                // 5.2.2 Listar todas las tareas
-                Route::get('/', [TaskController::class, 'index'])->name('index');
 
                 // 5.2.3 Ver detalles de tarea
                 Route::get('/{task}', [TaskController::class, 'show'])->name('show');
