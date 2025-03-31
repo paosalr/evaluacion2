@@ -71,7 +71,7 @@ class TaskController extends Controller
                 'description' => $validated['description'],
                 'project_id' => $validated['project_id'],
                 'status_id' => TaskStatus::firstWhere('name', 'En espera de asignación')->id,
-                'created_by' => auth()->id(), // Esto ahora funcionará
+                'created_by' => auth()->id(),
             ]);
 
             $task->assignedUsers()->sync($validated['assigned_users']);
@@ -158,7 +158,7 @@ class TaskController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Tarea actualizada exitosamente.',
-                'data' => $task->load(['status_id', 'assignedUsers'])
+                'data' => $task->load(['status', 'assignedUsers'])
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
