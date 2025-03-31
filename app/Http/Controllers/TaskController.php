@@ -103,7 +103,6 @@ class TaskController extends Controller
             ], 404);
         }
 
-        // Verificar permisos
         $user = auth()->user();
 
         if (strtolower($user->role->name) === 'planeación') {

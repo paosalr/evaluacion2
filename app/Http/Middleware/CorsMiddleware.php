@@ -9,22 +9,28 @@ class CorsMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
+
         $allowedOrigin = 'http://localhost:5173';
 
         $headers = [
             'Access-Control-Allow-Origin' => $allowedOrigin,
-            'Access-Control-Allow-Methods' => 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Methods' => 'GET, POST, PUT, DELETE',
             'Access-Control-Allow-Headers' => 'Content-Type, Authorization, Accept, X-Requested-With',
         ];
 
-        if ($request->isMethod('OPTIONS')) {
-            return response()->json(['status' => 'OK'], 200, $headers);
-        }
+        \Log::debug('Cors middleware 1',[
+            'request'=>$request->all()
+        ]);
 
         $response = $next($request);
+
         foreach ($headers as $key => $value) {
             $response->header($key, $value);
         }
+
+        \Log::debug('Cors middleware 2',[
+            'request'=>$request->all()
+        ]);
 
         return $response;
     }
