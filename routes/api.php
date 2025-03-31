@@ -7,69 +7,124 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\TaskController;
 
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider within a group which
-| is assigned the "api" middleware group. Enjoy building your API!
-|
-*/
-Route::prefix('v1')->group(function (){
-    Route::post('/login', [AuthController::class, 'login'])->name('login');
+Route::prefix('v1')->group(function () {
+    // Autenticación pública
+    Route::post('/login', [AuthController::class, 'login'])->name('auth.login');
 
-Route::middleware('auth:sanctum')->group(function () {
-    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    // Rutas protegidas
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/logout', [AuthController::class, 'logout'])->name('auth.logout');
 
-    Route::middleware('checkRole:RH')->group(function(){
-        Route::prefix('users')->group(function () {
-            Route::get('index', [UserController::class, 'index'])->name('users.index');
-            Route::post('store', [UserController::class, 'store'])->name('users.store');
-            Route::get('show/{id}', [UserController::class, 'show'])->name('users.show');
-            Route::put('update/{id}', [UserController::class, 'update'])->name('users.update');
-            Route::put('update-password/{id}', [UserController::class, 'updatePassword'])->name('users.update.password');
-            Route::put('active-inactive/{id}', [UserController::class, 'activeInactiveUser'])->name('users.active-inactive');
-            Route::delete('delete/{id}', [UserController::class, 'destroy'])->name('users.destroy');
-            Route::get('testers-developers', [UserController::class, 'getTestersDevelopers'])->name('users.testers.developers');
+// 2. Perfil del usuario (actualización de datos personales)
+        Route::prefix('profile')->name('profile.')->group(function () {
+            Route::get('/', [UserController::class, 'showCurrent'])->name('show');
+            Route::put('/', [UserController::class, 'updateCurrent'])->name('update'); // Solo actualiza nombre y apellidos
         });
-    });
 
-    /***** PLANEACIÓN *****/
-    Route::middleware('checkRole:Planeacion')->group(function () {
+        // 3. Gestión de Usuarios (solo RH)
+        Route::middleware('checkRole:rh')->prefix('users')->name('users.')->group(function () {
+            // 3.1 Listar usuarios (nombre, correo y rol)
+            Route::get('/', [UserController::class, 'index'])->name('index');
 
-    /***** PLANEACIÓN *****/
-    Route::prefix('projects')->group(function () {
-        Route::get('index', [ProjectController::class, 'index'])->name('projects.index');
-        Route::post('store', [ProjectController::class, 'store'])->name('projects.store');
-        Route::get('show/{id}', [ProjectController::class, 'show'])->name('projects.show');
-        Route::put('update/{id}', [ProjectController::class, 'update'])->name('projects.update');
-        Route::put('update-status/{id}', [ProjectController::class, 'updateStatus'])->name('projects.update.status');
-        Route::post('assign-developers/{id}', [ProjectController::class, 'assignDevelopers'])->name('projects.assign.developers');
-        Route::delete('delete/{id}', [ProjectController::class, 'destroy'])->name('projects.destroy');
-        Route::get('task-project/{id}', [ProjectController::class, 'getTasksByProject'])->name('projects.tasks');
-    });
+            // 3.2 Registrar nuevos usuarios
+            Route::post('/', [UserController::class, 'store'])->name('store');
 
-    /***** TAREAS *****/
-    Route::prefix('tasks')->group(function () {
-        Route::get('index', [TaskController::class, 'index'])->name('tasks.index');
-        Route::post('store', [TaskController::class, 'store'])->name('tasks.store');
-        Route::get('show/{id}', [TaskController::class, 'show'])->name('tasks.show');
-        Route::put('update/{id}', [TaskController::class, 'update'])->name('tasks.update');
-        Route::put('update-status/{id}', [TaskController::class, 'updateStatus'])->name('tasks.update.status');
-        Route::delete('delete/{id}', [TaskController::class, 'destroy'])->name('tasks.destroy');
-    });
-    });
+            // 3.3 Obtener roles disponibles
+            Route::get('/roles', [UserController::class, 'getAvailableRoles'])->name('roles.index');
 
-    /***** DESARROLLADORES Y TESTERS *****/
-    Route::middleware('checkRole:Desarrollador,Tester')->group(function () {
+            Route::put('/users/{user}/status', [UserController::class, 'toggleStatus'])->name('users.toggle.status');
 
-    /***** TAREAS ASIGNADAS *****/
-    Route::prefix('tasks')->group(function () {
-        Route::get('assigned', [TaskController::class, 'assignedTasks'])->name('tasks.assigned');
-        Route::put('update-status/{id}', [TaskController::class, 'updateStatus'])->name('tasks.update.status');
+
+            // Operaciones por usuario específico
+            Route::prefix('{user}')->group(function () {
+                // 3.4 Ver detalles
+                Route::get('/', [UserController::class, 'show'])->name('show');
+
+                // 3.5 Actualizar (incluye correo - solo RH)
+                Route::put('/', [UserController::class, 'update'])->name('update');
+
+                // 3.6 Actualizar contraseña (solo RH)
+                Route::put('/password', [UserController::class, 'updatePassword'])->name('password');
+
+                // 3.7 Deshabilitar/habilitar usuario (solo RH)
+                Route::put('/status', [UserController::class, 'toggleStatus'])->name('status');
+
+                // 3.8 Eliminar usuario (solo RH)
+                Route::delete('/', [UserController::class, 'destroy'])->name('destroy');
+            });
         });
+
+
+        // 4. Gestión de Proyectos
+        Route::prefix('projects')->name('projects.')->group(function () {
+            Route::get('project-statuses', [ProjectController::class, 'getProjectStatuses'])->name('project_statuses');
+
+            // 4.1 Listar proyectos (todos los roles excepto RH)
+            Route::get('/', [ProjectController::class, 'index'])->middleware('checkRole:planeación,desarrollador,tester');
+
+            // 4.2 Ver detalles de proyecto (todos excepto RH)
+            Route::get('/{project}', [ProjectController::class, 'show'])->middleware('checkRole:planeación,desarrollador,tester')->name('show');
+            // 4.3 Ver tareas por proyecto (todos excepto RH)
+            Route::get('/{project}/tasks', [ProjectController::class, 'getTasksByProject'])->middleware('checkRole:planeación,desarrollador,tester')->name('tasks');
+            Route::get('projects/{project}/tasks', [ProjectController::class, 'getTasksByProject'])->name('projects.tasks');
+
+            // 4.4 Operaciones solo para Planeación y RH
+            Route::middleware('checkRole:planeación,rh')->group(function () {
+                // 4.4.1 Crear proyectos
+                Route::post('/', [ProjectController::class, 'store'])->name('store');
+
+                // 4.4.2 Obtener desarrolladores asignables
+                Route::get('/assignable-developers', [ProjectController::class, 'getAssignableDevelopers'])->name('assignable.devs');
+            });
+
+            // 4.5 Operaciones exclusivas de Planeación
+            Route::middleware('checkRole:planeación')->group(function () {
+                // 4.5.1 Actualizar nombre y descripción
+                Route::put('/{project}', [ProjectController::class, 'update'])->name('update');
+
+                // 4.5.2 Cambiar estado
+                Route::put('/{project}/status', [ProjectController::class, 'updateStatus'])->name('status');
+
+                // 4.5.3 Asignar desarrolladores
+                Route::post('/{project}/developers', [ProjectController::class, 'assignDevelopers'])->name('assign.developers');
+
+                // 4.5.4 Eliminar proyecto
+                Route::delete('/{project}', [ProjectController::class, 'destroy'])->name('destroy');
+            });
+        });
+
+        // 5. Gestión de Tareas
+        Route::prefix('tasks')->name('tasks.')->group(function () {
+            Route::get('task-statuses', [TaskController::class, 'getTaskStatuses'])->middleware('checkRole:planeación,desarrollador,tester');
+            // 5.1 Operaciones para Desarrolladores y Testers
+            Route::middleware('checkRole:desarrollador,tester')->group(function () {
+                // 5.1.1 Ver tareas asignadas
+                Route::get('/assigned', [TaskController::class, 'assignedTasks'])->name('assigned');
+
+                // 5.1.2 Cambiar estado de tarea
+                Route::put('/{task}/status', [TaskController::class, 'updateStatus'])->name('update.status');
+            });
+
+            // 5.2 Operaciones exclusivas de Planeación
+            Route::middleware('checkRole:planeación')->group(function () {
+                // 5.2.1 Crear tareas
+                Route::post('/', [TaskController::class, 'store'])->name('store');
+
+                // 5.2.2 Listar todas las tareas
+                Route::get('/', [TaskController::class, 'index'])->name('index');
+
+                // 5.2.3 Ver detalles de tarea
+                Route::get('/{task}', [TaskController::class, 'show'])->name('show');
+
+                // 5.2.4 Actualizar tarea (título, descripción, asignados)
+                Route::put('/{task}', [TaskController::class, 'update'])->name('update');
+
+                // 5.2.5 Asignar usuarios a tarea
+                Route::post('/{task}/assign', [TaskController::class, 'assignUsers'])->name('assign.users');
+
+                // 5.2.6 Eliminar tarea
+                Route::delete('/{task}', [TaskController::class, 'destroy'])->name('destroy');
+            });
         });
     });
 });

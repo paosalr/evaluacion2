@@ -4,25 +4,22 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Auth;
-
 
 class UserController extends Controller
 {
     public function index()
     {
-        if (auth()->user()->role->name !== 'RH') {
+        if (strtolower(auth()->user()->role->name) !== 'rh') {
             return response()->json([
                 'success' => false,
-                'message' => 'Acceso denegado. Solo usuarios RH pueden ver la lista de usuarios.'
+                'message' => 'Acceso denegado. Solo RH puede ver la lista de usuarios.'
             ], 403);
         }
 
-        $users = User::paginate(10);
+        $users = User::with('role')->paginate(10);
 
         return response()->json([
             'success' => true,
@@ -32,6 +29,13 @@ class UserController extends Controller
 
     public function store(Request $request)
     {
+        if (strtolower(auth()->user()->role->name) !== 'rh') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Acceso denegado. Solo RH puede crear usuarios.'
+            ], 403);
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'last_name_p' => 'required|string|max:255',
@@ -60,28 +64,36 @@ class UserController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Usuario creado exitosamente.',
-                'data' => [
-                    "user" => $user
-                ]
-            ]);
+                'data' => $user
+            ], 201);
         } catch (\Exception $e) {
             DB::rollback();
             return response()->json([
                 'success' => false,
-                'message' => 'Ha ocurrido un error: ' . $e->getMessage()
+                'message' => 'Error al crear el usuario.',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
 
     public function show($id)
     {
-        $user = User::find($id);
+        $user = User::with('role')->find($id);
 
-        if(!$user) {
+        if (!$user) {
             return response()->json([
                 'success' => false,
-                'message' => 'Usuario no encontrado'
+                'message' => 'Usuario no encontrado.'
             ], 404);
+        }
+
+        // RH puede ver cualquier usuario, otros solo pueden verse a sí mismos
+        $authUser = auth()->user();
+        if (strtolower($authUser->role->name) !== 'rh' && $authUser->id != $id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Solo puedes ver tu propio perfil.'
+            ], 403);
         }
 
         return response()->json([
@@ -89,64 +101,8 @@ class UserController extends Controller
             'data' => $user
         ]);
     }
+
     public function update(Request $request, $id)
-    {
-        $authUser = auth()->user();
-
-        if (!$authUser) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Usuario no encontrado.'
-            ], 404);
-        }
-
-        $user = User::with('role')->find($id);
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Usuario no encontrado.'
-            ], 404);
-        }
-
-        if($request->has('email') && strtolower(trim($authUser->role->name)) !== 'rh') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Solo los usuarios RH pueden actualizar el correo.'
-            ], 403);
-        }
-        $request->validate([
-            'name' => 'sometimes|string|max:255',
-            'last_name_p' => 'sometimes|string|max:255',
-            'last_name_m' => 'sometimes|string|max:255',
-            'email' => 'sometimes|string|email|max:255|unique:users,email,' . $id,
-            'role_id' => 'sometimes|exists:roles,id'
-            ]);
-
-        try {
-            DB::beginTransaction();
-
-            $user->fill($request->only(['name', 'last_name_p', 'last_name_m', 'email', 'role_id']));
-            $user->save();
-
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Usuario actualizado exitosamente.',
-                'data' => [
-                    "user" => $user
-                ]
-            ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Ha ocurrido un error: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    public function activeInactiveUser($id)
     {
         $user = User::find($id);
 
@@ -157,30 +113,60 @@ class UserController extends Controller
             ], 404);
         }
 
-        if (auth()->user()->role->name !== 'RH') {
+        $authUser = auth()->user();
+        $isRH = strtolower($authUser->role->name) === 'rh';
+
+        // Solo RH puede actualizar otros usuarios o campos sensibles
+        if (!$isRH && $authUser->id != $id) {
             return response()->json([
                 'success' => false,
-                'message' => 'Solo los usuarios RH pueden deshabilitar/activar usuarios.'
+                'message' => 'Solo puedes actualizar tu propio perfil.'
             ], 403);
         }
 
-        try{
+        $validationRules = [
+            'name' => 'sometimes|string|max:255',
+            'last_name_p' => 'sometimes|string|max:255',
+            'last_name_m' => 'sometimes|string|max:255'
+        ];
+
+        // Solo RH puede actualizar email y rol
+        if ($isRH) {
+            $validationRules['email'] = 'sometimes|string|email|max:255|unique:users,email,' . $id;
+            $validationRules['role_id'] = 'sometimes|exists:roles,id';
+        }
+
+        $request->validate($validationRules);
+
+        try {
             DB::beginTransaction();
 
-            $user->is_active = !$user->is_active;
-            $user->save();
+            $updateData = $request->only(['name', 'last_name_p', 'last_name_m']);
+
+            if ($isRH) {
+                if ($request->has('email')) {
+                    $updateData['email'] = $request->email;
+                }
+                if ($request->has('role_id')) {
+                    $updateData['role_id'] = $request->role_id;
+                }
+            }
+
+            $user->update($updateData);
 
             DB::commit();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Usuario ' . ($user->is_active ? 'activado' : 'desactivado') . 'exitosamente.'
-                ]);
+                'message' => 'Usuario actualizado exitosamente.',
+                'data' => $user
+            ]);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'Ha ocurrido un error: ' . $e->getMessage()
+                'message' => 'Error al actualizar el usuario.',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -196,21 +182,22 @@ class UserController extends Controller
             ], 404);
         }
 
-        if(auth()->user()->role->name !== 'RH'){
+        $authUser = auth()->user();
+        $isRH = strtolower($authUser->role->name) === 'rh';
+
+        // Solo RH puede actualizar contraseñas de otros usuarios
+        if (!$isRH && $authUser->id != $id) {
             return response()->json([
                 'success' => false,
-                'message' => 'Solo los usuarios RH pueden actualizar la contraseña.'
+                'message' => 'Solo puedes actualizar tu propia contraseña.'
             ], 403);
         }
+
         $request->validate([
-            'password' => 'required|confirmed|min:8',
-        ], [
-            'password.required' => 'La contraseña es obligatoria.',
-            'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
-            'password.confirmed' => 'Las contraseñas no coinciden.'
+            'password' => 'required|string|min:8',
         ]);
 
-        try{
+        try {
             DB::beginTransaction();
 
             $user->password = Hash::make($request->password);
@@ -226,13 +213,21 @@ class UserController extends Controller
             DB::rollback();
             return response()->json([
                 'success' => false,
-                'message' => 'Ha ocurrido un error: ' . $e->getMessage()
+                'message' => 'Error al actualizar la contraseña.',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
 
-    public function destroy($id)
+    public function activeInactiveUser($id)
     {
+        if (strtolower(auth()->user()->role->name) !== 'rh') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Acceso denegado. Solo RH puede activar/desactivar usuarios.'
+            ], 403);
+        }
+
         $user = User::find($id);
 
         if (!$user) {
@@ -242,14 +237,47 @@ class UserController extends Controller
             ], 404);
         }
 
-        if (auth()->user()->role->name !== 'RH') {
+        try {
+            DB::beginTransaction();
+
+            $user->is_active = !$user->is_active;
+            $user->save();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Usuario ' . ($user->is_active ? 'activado' : 'desactivado') . ' exitosamente.'
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'Solo los usuarios RH pueden eliminar usuarios.'
+                'message' => 'Error al cambiar el estado del usuario.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function destroy($id)
+    {
+        if (strtolower(auth()->user()->role->name) !== 'rh') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Acceso denegado. Solo RH puede eliminar usuarios.'
             ], 403);
         }
 
-        try{
+        $user = User::find($id);
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Usuario no encontrado.'
+            ], 404);
+        }
+
+        try {
             DB::beginTransaction();
 
             $user->delete();
@@ -258,48 +286,188 @@ class UserController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Usuario eliminado exitosamente'
+                'message' => 'Usuario eliminado exitosamente.'
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'Ha ocurrido un error: ' . $e->getMessage()
+                'message' => 'Error al eliminar el usuario.',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
 
     public function getTestersDevelopers()
     {
-        if (auth()->user()->role->name !== 'RH') {
+        if (strtolower(auth()->user()->role->name) !== 'rh') {
             return response()->json([
                 'success' => false,
-                'message' => 'Acceso denegado. Solo usuarios RH pueden ver esta lista.'
+                'message' => 'Acceso denegado. Solo RH puede ver esta lista.'
             ], 403);
         }
 
         try {
+            $roles = Role::whereIn('name', ['Desarrollador', 'Tester'])
+                ->pluck('id')
+                ->toArray();
 
-            $roles = Role::whereIn('name', ['Desarrollador', 'Tester'])->pluck('id')->toArray();
-
-            if (!$roles) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Roles no encontrados.'
-                ], 404);
-            }
             $users = User::whereIn('role_id', $roles)
+                ->with('role')
                 ->select('id', 'name', 'last_name_p', 'last_name_m', 'email', 'role_id', 'is_active')
                 ->get();
 
             return response()->json([
                 'success' => true,
-                'data' => $users,
+                'data' => $users
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Ha ocurrido un error: ' . $e->getMessage()
+                'message' => 'Error al obtener la lista de desarrolladores y testers.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function updateCurrentPassword(Request $request)
+    {
+        try {
+            DB::beginTransaction();
+
+            $request->validate([
+                'current_password' => 'required|string',
+                'new_password' => 'required|string|min:8'
+            ]);
+
+            $user = $request->user();
+
+            if (!Hash::check($request->current_password, $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'La contraseña actual es incorrecta.'
+                ], 401);
+            }
+
+            $user->password = Hash::make($request->new_password);
+            $user->save();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Contraseña actualizada exitosamente.'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al actualizar la contraseña.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Obtiene usuarios por rol (optimizada)
+     */
+    public function getUsersByRole($role)
+    {
+        if (strtolower(auth()->user()->role->name) !== 'rh') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Acceso denegado. Solo RH puede ver esta lista.'
+            ], 403);
+        }
+
+        try {
+            $validRoles = ['desarrollador', 'tester', 'planeación', 'rh'];
+
+            if (!in_array(strtolower($role), $validRoles)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Rol no válido.'
+                ], 400);
+            }
+
+            $roleId = Role::where('name', 'like', $role)->first()->id;
+
+            $users = User::where('role_id', $roleId)
+                ->with('role')
+                ->select('id', 'name', 'last_name_p', 'last_name_m', 'email', 'role_id', 'is_active')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $users
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener la lista de usuarios.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getAvailableRoles()
+    {
+        if (strtolower(auth()->user()->role->name) !== 'rh') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Solo RH puede ver los roles disponibles'
+            ], 403);
+        }
+
+        try {
+            $roles = Role::select('id', 'name')->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $roles
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener roles',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // En UserController.php
+    public function toggleStatus($id)
+    {
+        if (strtolower(auth()->user()->role->name) !== 'rh') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Solo RH puede activar/desactivar usuarios.'
+            ], 403);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $user = User::findOrFail($id);
+            $user->is_active = !$user->is_active;
+            $user->save();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Usuario ' . ($user->is_active ? 'activado' : 'desactivado') . ' exitosamente.'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al cambiar el estado del usuario.',
+                'error' => $e->getMessage()
             ], 500);
         }
     }

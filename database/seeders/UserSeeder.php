@@ -2,66 +2,56 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Models\User;
 use App\Models\Role;
+use App\Models\User;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
 class UserSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     *
-     * @return void
-     */
     public function run()
     {
-        $rhRole = Role::where('name', 'RH')->first();
-        $planningRole = Role::where('name', 'Planeacion')->first();
-        $developerRole = Role::where('name', 'Desarrollador')->first();
-        $testerRole = Role::where('name', 'Tester')->first();
-
         User::create([
-           'name' => 'Admin',
-           'last_name_p' => 'RH',
-           'last_name_m' => 'RH',
-           'email' => 'rh@prueba.com',
-           'password' => Hash::make('password'),
-           'registration_date' => now(),
-            'role_id' => $rhRole->id,
+            'name' => 'Admin RH',
+            'last_name_p' => 'Sistema',
+            'last_name_m' => 'Principal',
+            'email' => 'rh@empresa.com',
+            'password' => Hash::make('password123'),
+            'role_id' => Role::RH,
+            'is_active' => true
         ]);
 
         User::create([
-            'name' => 'Planeacion',
-            'last_name_p' => 'plan',
-            'last_name_m' => 'plan',
-            'email' => 'planning@prueba.com',
-            'password' => Hash::make('password'),
-            'registration_date' => now(),
-            'role_id' => $planningRole->id,
+            'name' => 'Jefe Planeación',
+            'last_name_p' => 'Proyectos',
+            'last_name_m' => 'Organización',
+            'email' => 'planeacion@empresa.com',
+            'password' => Hash::make('password123'),
+            'role_id' => Role::PLANNING,
+            'is_active' => true
         ]);
 
-        for ($i = 1; $i <= 5; $i++){
+        for ($i = 1; $i <= 5; $i++) {
             User::create([
-               'name' => 'Desarrollador' . $i,
-               'last_name_p' => 'devep',
-                'last_name_m' => 'devep',
-                'email' => 'developer' . $i . '@prueba.com',
-               'password' => Hash::make('password'),
-               'registration_date' => now(),
-               'role_id' => $developerRole->id,
+                'name' => "Desarrollador $i",
+                'last_name_p' => 'Dev',
+                'last_name_m' => 'López',
+                'email' => "desarrollador$i@empresa.com",
+                'password' => Hash::make('password123'),
+                'role_id' => Role::DEVELOPER,
+                'is_active' => true
             ]);
         }
-
-        for ($i = 1; $i <= 2; $i++){
+        //Tester
+        for ($i = 1; $i <= 2; $i++) {
             User::create([
-                'name' => 'Tester' . $i,
-                'last_name_p' => 'test',
-                'last_name_m' => 'test',
-                'email' => 'tester' . $i . '@prueba.com',
-                'password' => Hash::make('password'),
-                'registration_date' => now(),
-                'role_id' => $testerRole->id,
+                'name' => "Tester $i",
+                'last_name_p' => 'QA',
+                'last_name_m' => 'Testing',
+                'email' => "tester$i@empresa.com",
+                'password' => Hash::make('password123'),
+                'role_id' => Role::TESTER,
+                'is_active' => true
             ]);
         }
     }

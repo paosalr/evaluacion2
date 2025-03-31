@@ -17,14 +17,16 @@ class User extends Authenticatable
      *
      * @var array<int, string>
      */
+
+    protected $table = 'users';
     protected $fillable = [
         'name',
         'last_name_p',
         'last_name_m',
         'email',
         'password',
-        'registration_date',
         'role_id',
+        'registration_date',
         'is_active',
     ];
 
@@ -38,21 +40,6 @@ class User extends Authenticatable
         'remember_token',
     ];
 
-    public function role()
-    {
-        return $this->belongsTo(Role::class);
-    }
-
-    public function projects()
-    {
-        return $this->belongsToMany(Project::class);
-    }
-
-    public function tasks()
-    {
-        return $this->hasMany(Task::class, 'assigned_to');
-    }
-
     /**
      * The attributes that should be cast.
      *
@@ -60,5 +47,42 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'is_active' => 'boolean',
+        'registration_date' => 'datetime',
     ];
+
+    protected $dates = [
+        'registration_date',
+    ];
+    protected $appends = [
+        'full_name',
+        'formatted_registration_date'
+    ];
+
+    public function getFullNameAttribute()
+    {
+        return "{$this->name} {$this->last_name_p} {$this->last_name_m}";
+    }
+
+    public function getFormattedRegistrationDateAttribute()
+    {
+        return $this->registration_date ? $this->registration_date->format('Y-m-d') : null;
+    }
+    public function role()
+    {
+        return $this->belongsTo(Role::class);
+    }
+    public function projects()
+    {
+        return $this->belongsToMany(Project::class)
+            ->withPivot('created_at', 'updated_at')
+            ->withTimestamps();
+    }
+    public function tasks()
+    {
+        return $this->belongsToMany(Task::class)
+            ->withPivot('created_at', 'updated_at')
+            ->withTimestamps();
+    }
 }
+

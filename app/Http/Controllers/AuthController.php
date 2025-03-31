@@ -10,16 +10,29 @@ class AuthController extends Controller
 {
     public function login(Request $request)
     {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|string'
+        ]);
+
         $credentials = $request->only('email', 'password');
 
-        if(Auth::attempt($credentials)) {
+        if (Auth::attempt($credentials)) {
             $user = Auth::user();
+
+            if (!$user->is_active) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cuenta desactivada. Contacta al administrador.'
+                ], 403);
+            }
+
             $token = $user->createToken('authToken')->plainTextToken;
 
             return response()->json([
                 'success' => true,
                 'token' => $token,
-                'user' => $user
+                'user' => $user->load('role')
             ]);
         }
 

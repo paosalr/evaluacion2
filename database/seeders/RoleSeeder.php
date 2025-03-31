@@ -14,10 +14,30 @@ class RoleSeeder extends Seeder
      */
     public function run()
     {
-        $roles = ['RH', 'Desarrollador', 'Planeacion', 'Tester'];
+        $roles = [
+            [
+                'id' => Role::RH,
+                'name' => 'RH'
+            ],
+            [
+                'id' => Role::DEVELOPER,
+                'name' => 'Desarrollador'
+            ],
+            [
+                'id' => Role::PLANNING,
+                'name' => 'Planeación'
+            ],
+            [
+                'id' => Role::TESTER,
+                'name' => 'Tester'
+            ]
+        ];
 
         foreach ($roles as $role) {
-            Role::create(['name' => $role]);
+            Role::updateOrCreate(
+                ['id' => $role['id']],
+                $role
+            );
         }
     }
 }
