@@ -87,7 +87,6 @@ class UserController extends Controller
             ], 404);
         }
 
-        // RH puede ver cualquier usuario, otros solo pueden verse a sí mismos
         $authUser = auth()->user();
         if (strtolower($authUser->role->name) !== 'rh' && $authUser->id != $id) {
             return response()->json([
@@ -95,7 +94,6 @@ class UserController extends Controller
                 'message' => 'Solo puedes ver tu propio perfil.'
             ], 403);
         }
-
         return response()->json([
             'success' => true,
             'data' => $user
@@ -116,7 +114,6 @@ class UserController extends Controller
         $authUser = auth()->user();
         $isRH = strtolower($authUser->role->name) === 'rh';
 
-        // Solo RH puede actualizar otros usuarios o campos sensibles
         if (!$isRH && $authUser->id != $id) {
             return response()->json([
                 'success' => false,
@@ -130,7 +127,6 @@ class UserController extends Controller
             'last_name_m' => 'sometimes|string|max:255'
         ];
 
-        // Solo RH puede actualizar email y rol
         if ($isRH) {
             $validationRules['email'] = 'sometimes|string|email|max:255|unique:users,email,' . $id;
             $validationRules['role_id'] = 'sometimes|exists:roles,id';
@@ -155,7 +151,6 @@ class UserController extends Controller
             $user->update($updateData);
 
             DB::commit();
-
             return response()->json([
                 'success' => true,
                 'message' => 'Usuario actualizado exitosamente.',
@@ -185,7 +180,6 @@ class UserController extends Controller
         $authUser = auth()->user();
         $isRH = strtolower($authUser->role->name) === 'rh';
 
-        // Solo RH puede actualizar contraseñas de otros usuarios
         if (!$isRH && $authUser->id != $id) {
             return response()->json([
                 'success' => false,

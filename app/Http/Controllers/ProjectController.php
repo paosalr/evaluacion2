@@ -23,13 +23,11 @@ class ProjectController extends Controller
                 $q->where('user_id', $user->id);
             });
         }
-
         return response()->json([
             'success' => true,
             'data' => $query->paginate(10)
         ]);
     }
-
 
     public function store(Request $request)
     {
@@ -99,7 +97,6 @@ class ProjectController extends Controller
             ], 404);
         }
 
-        // Verificar permisos para ver el proyecto
         $user = auth()->user();
         $canView = $project->status === 'Planeación' ||
             $project->developers->contains($user->id) ||
@@ -111,7 +108,6 @@ class ProjectController extends Controller
                 'message' => 'No tienes permiso para ver este proyecto.'
             ], 403);
         }
-
         return response()->json([
             'success' => true,
             'data' => $project
@@ -147,7 +143,6 @@ class ProjectController extends Controller
             $project->update($request->only(['name', 'description']));
 
             DB::commit();
-
             return response()->json([
                 'success' => true,
                 'message' => 'Proyecto actualizado exitosamente.',
@@ -191,7 +186,6 @@ class ProjectController extends Controller
             $project->save();
 
             DB::commit();
-
             return response()->json([
                 'success' => true,
                 'message' => 'Estado del proyecto actualizado exitosamente.'
@@ -205,7 +199,6 @@ class ProjectController extends Controller
             ], 500);
         }
     }
-
     public function destroy($id)
     {
         if (strtolower(auth()->user()->role->name) !== 'planeación') {
@@ -227,12 +220,10 @@ class ProjectController extends Controller
             $project->delete();
 
             DB::commit();
-
             return response()->json([
                 'success' => true,
                 'message' => 'Proyecto y sus tareas asociadas eliminados exitosamente.'
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -242,7 +233,6 @@ class ProjectController extends Controller
             ], 500);
         }
     }
-
     public function assignDevelopers(Request $request, $id)
     {
         $request->validate([
@@ -272,7 +262,6 @@ class ProjectController extends Controller
             $project->developers()->sync($request->developer_ids);
 
             DB::commit();
-
             return response()->json([
                 'success' => true,
                 'message' => 'Desarrolladores asignados exitosamente al proyecto.'
@@ -290,7 +279,6 @@ class ProjectController extends Controller
     public function getTasksByProject($id)
     {
         $project = Project::with('tasks')->find($id);
-
         if (!$project) {
             return response()->json([
                 'success' => false,
@@ -298,7 +286,6 @@ class ProjectController extends Controller
             ], 404);
         }
 
-        // Verificar permisos
         $user = auth()->user();
         $canView = $project->status === 'Planeación' ||
             $project->developers->contains($user->id) ||
@@ -310,20 +297,17 @@ class ProjectController extends Controller
                 'message' => 'No tienes permiso para ver las tareas de este proyecto.'
             ], 403);
         }
-
         return response()->json([
             'success' => true,
             'data' => $project->tasks
         ]);
     }
-
     public function getProjectTasks($projectId)
     {
         try {
             $project = Project::with('status')->findOrFail($projectId);
             $user = auth()->user();
 
-            // Verificar permisos
             if (strtolower($user->role->name) === 'rh') {
                 return response()->json([
                     'success' => false,
@@ -357,7 +341,6 @@ class ProjectController extends Controller
                         })
                     ];
                 });
-
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -369,7 +352,6 @@ class ProjectController extends Controller
                     'tasks' => $tasks
                 ]
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

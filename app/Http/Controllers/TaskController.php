@@ -32,7 +32,6 @@ class TaskController extends Controller
                     });
             })->paginate(10);
         }
-
         return response()->json([
             'success' => true,
             'data' => $tasks
@@ -120,7 +119,6 @@ class TaskController extends Controller
                 'data' => $task
             ]);
         }
-
         return response()->json([
             'success' => false,
             'message' => 'No tienes permiso para ver esta tarea.'
@@ -169,7 +167,6 @@ class TaskController extends Controller
             ], 500);
         }
     }
-
     public function updateStatus(Request $request, $id)
     {
         $request->validate([
@@ -208,7 +205,6 @@ class TaskController extends Controller
             ], 500);
         }
     }
-
     public function destroy($id)
     {
         $task = Task::find($id);
@@ -233,7 +229,6 @@ class TaskController extends Controller
             $task->delete();
 
             DB::commit();
-
             return response()->json([
                 'success' => true,
                 'message' => 'Tarea eliminada exitosamente.'
@@ -283,7 +278,6 @@ class TaskController extends Controller
             ], 403);
         }
 
-        // Verificar que los usuarios sean desarrolladores o testers
         $validUsers = User::whereIn('id', $request->user_ids)
             ->whereHas('role', function($q) {
                 $q->whereIn('name', ['Desarrollador', 'Tester']);
@@ -302,12 +296,10 @@ class TaskController extends Controller
             $task->assignedUsers()->sync($request->user_ids);
 
             DB::commit();
-
             return response()->json([
                 'success' => true,
                 'message' => 'Usuarios asignados exitosamente a la tarea.'
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -368,7 +360,6 @@ class TaskController extends Controller
                 })
                 ->paginate(10);
         }
-
         return response()->json([
             'success' => true,
             'data' => $tasks

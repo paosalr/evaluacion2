@@ -9,9 +9,7 @@ class TaskStatus extends Model
 {
     use HasFactory;
 
-    protected $table = 'task_statuses'; // Especificar nombre de tabla
-
-    // Constantes para estados
+    protected $table = 'task_statuses';
     const PENDING_ASSIGNMENT = 1;
     const IN_PROGRESS = 2;
     const IN_TESTING = 3;
@@ -36,26 +34,14 @@ class TaskStatus extends Model
         'formatted_name',
         'formatted_created_at'
     ];
-
-    /**
-     * Relationship with Tasks
-     */
     public function tasks()
     {
         return $this->hasMany(Task::class, 'status_id');
     }
-
-    /**
-     * Scope for active statuses
-     */
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
     }
-
-    /**
-     * Scope para tareas pendientes de asignación
-     */
     public function scopePendingAssignment($query)
     {
         return $query->where('id', self::PENDING_ASSIGNMENT);

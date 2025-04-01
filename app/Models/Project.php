@@ -35,12 +35,10 @@ class Project extends Model
                 $query->where('name', 'Desarrollador');
             });
     }
-
     public function status()
     {
         return $this->belongsTo(ProjectStatus::class);
     }
-
     public function assignedUsers()
     {
         return $this->belongsToMany(User::class)

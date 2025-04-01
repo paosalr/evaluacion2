@@ -63,7 +63,6 @@ class User extends Authenticatable
     {
         return "{$this->name} {$this->last_name_p} {$this->last_name_m}";
     }
-
     public function getFormattedRegistrationDateAttribute()
     {
         return $this->registration_date ? $this->registration_date->format('Y-m-d') : null;
